@@ -29,7 +29,7 @@ func CreateDB() *sql.DB {
 }
 
 // SelectAllDevices selects all devices (without errors)
-func Dump(db *sql.DB, startDate, endDate string) error {
+func DumpServicesStops(db *sql.DB, startDate, endDate string) error {
 	serviceRows, err := db.Query("SELECT id FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
 
 	if err != nil {

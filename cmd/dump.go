@@ -16,7 +16,7 @@ var dumpDayCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := db.CreateDB()
 
-		db.Dump(database, args[0], args[0])
+		db.DumpServicesStops(database, args[0], args[0])
 	},
 }
 
