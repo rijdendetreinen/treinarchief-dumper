@@ -74,6 +74,10 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 	}
 	defer serviceRows.Close()
 
+	if err := serviceRows.Err(); err != nil {
+		log.Fatal(err)
+	}
+
 	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled FROM stop WHERE service_id = ? ORDER BY stop_index")
 	if err != nil {
 		log.Fatal(err)
@@ -81,7 +85,12 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 
 	defer stopRowsStatement.Close()
 
+	serviceCounter := 0
+	stopCounter := 0
+
 	for serviceRows.Next() {
+		serviceCounter++
+
 		var serviceID, maxDelay int
 		var completelyCancelled, partlyCancelled bool
 		var serviceDate, serviceType string
@@ -105,6 +114,8 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 		}
 
 		for stopRows.Next() {
+			stopCounter++
+
 			var serviceNumber, stopCode, stopName string
 			var stopID, arrivalDelay, departureDelay int
 			var arrivalTime, departureTime sql.NullString
@@ -174,12 +185,19 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 				departureCancelledCSV,
 			})
 
+			if stopCounter%40000 == 0 {
+				log.WithFields(log.Fields{"service": serviceCounter, "stop": stopCounter}).Info("Dumping...")
+
+				// Take 0.5s timeout to prevent MySQL from getting overloaded:
+				time.Sleep(500 * time.Millisecond)
+
+				// flush csv
+				w.Flush()
+			}
 		}
 	}
 
-	if err := serviceRows.Err(); err != nil {
-		log.Fatal(err)
-	}
+	log.WithFields(log.Fields{"service": serviceCounter, "stop": stopCounter}).Info("Done")
 
 	return err
 }
