@@ -110,8 +110,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	// for stops:
 	var serviceNumber, stopCode, stopName string
 	var stopID, arrivalDelay, departureDelay int
+	var arrivalDelayNullable, departureDelayNullable sql.NullInt64
 	var arrivalTime, departureTime sql.NullString
-	var arrivalCancelled, departureCancelled bool
+	var arrivalCancelled, departureCancelled *bool
 	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV string
 
 	dateTimeLayout := "2006-01-02 15:04:05"
@@ -139,8 +140,20 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 			for stopRows.Next() {
 				stopCounter++
 
-				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelay, &arrivalCancelled, &departureTime, &departureDelay, &departureCancelled); err != nil {
+				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelayNullable, &arrivalCancelled, &departureTime, &departureDelayNullable, &departureCancelled); err != nil {
 					log.Fatal(err)
+				}
+
+				if arrivalDelayNullable.Valid {
+					arrivalDelay = int(arrivalDelayNullable.Int64)
+				} else {
+					arrivalDelay = 0
+				}
+
+				if departureDelayNullable.Valid {
+					departureDelay = int(departureDelayNullable.Int64)
+				} else {
+					departureDelay = 0
 				}
 
 				// Round max delays from seconds to minutes:
@@ -158,8 +171,12 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 						arrivalTimeCSV = arrivalTime.String
 					}
 
+					if arrivalCancelled == nil {
+						*arrivalCancelled = false
+					}
+
 					arrivalDelayCSV = strconv.Itoa(arrivalDelay)
-					arrivalCancelledCSV = strconv.FormatBool(arrivalCancelled)
+					arrivalCancelledCSV = strconv.FormatBool(*arrivalCancelled)
 				} else {
 					arrivalTimeCSV = ""
 					arrivalDelayCSV = ""
@@ -175,8 +192,12 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 						departureTimeCSV = departureTime.String
 					}
 
+					if departureCancelled == nil {
+						*departureCancelled = false
+					}
+
 					departureDelayCSV = strconv.Itoa(departureDelay)
-					departureCancelledCSV = strconv.FormatBool(departureCancelled)
+					departureCancelledCSV = strconv.FormatBool(*departureCancelled)
 				} else {
 					departureTimeCSV = ""
 					departureDelayCSV = ""
