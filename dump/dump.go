@@ -55,6 +55,19 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 		"Stop:departure cancelled",
 	})
 
+	var serviceCount int
+
+	serviceCountRow, err := db.Query("SELECT COUNT(id) FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	serviceCountRow.Next()
+	serviceCountRow.Scan(&serviceCount)
+	serviceCountRow.Close()
+
+	log.WithFields(log.Fields{"from": startDate, "to": endDate}).Info("Selecting ", serviceCount, " services")
+
 	serviceRows, err := db.Query("SELECT id, service_date, type, cancelled_completely, cancelled_partly, max_delay FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
 
 	if err != nil {
