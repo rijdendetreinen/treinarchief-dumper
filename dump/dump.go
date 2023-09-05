@@ -1,6 +1,7 @@
 package dump
 
 import (
+	"compress/gzip"
 	"database/sql"
 	"encoding/csv"
 	"os"
@@ -30,8 +31,19 @@ func CreateDB() *sql.DB {
 }
 
 // SelectAllDevices selects all devices (without errors)
-func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) error {
-	w := csv.NewWriter(csvFile)
+func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string) error {
+	var w *csv.Writer
+
+	if gzipCompression {
+		zipWriter := gzip.NewWriter(csvFile)
+		w = csv.NewWriter(zipWriter)
+
+		defer zipWriter.Flush()
+		defer zipWriter.Close()
+	} else {
+		w = csv.NewWriter(csvFile)
+	}
+
 	defer w.Flush()
 
 	// Write header row:

@@ -1,15 +1,17 @@
 package cmd
 
 import (
-	"log"
 	"os"
+	"strings"
 
 	"github.com/rijdendetreinen/treinarchief-dumper/dump"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var FileName string
 var DumpStdOut bool
+var GzipCompression bool
 
 var dumpCmd = &cobra.Command{
 	Use:   "dump",
@@ -24,14 +26,14 @@ var dumpDayCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := dump.CreateDB()
 
-		csvFile, err := createOutputFile()
+		csvFile, err := createOutputFile("services-" + args[0])
 
 		if err != nil {
 			os.Exit(1)
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, args[0], args[0])
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0], args[0])
 	},
 }
 
@@ -43,14 +45,14 @@ var dumpMonthCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := dump.CreateDB()
 
-		csvFile, err := createOutputFile()
+		csvFile, err := createOutputFile("services-" + args[0])
 
 		if err != nil {
 			os.Exit(1)
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, args[0]+"-01", args[0]+"-31")
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01", args[0]+"-31")
 	},
 }
 
@@ -62,20 +64,32 @@ var dumpYearCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		database := dump.CreateDB()
 
-		csvFile, err := createOutputFile()
+		csvFile, err := createOutputFile("services-" + args[0])
 
 		if err != nil {
 			os.Exit(1)
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, args[0]+"-01-01", args[0]+"-12-31")
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01-01", args[0]+"-12-31")
 	},
 }
 
-func createOutputFile() (*os.File, error) {
+func createOutputFile(defaultFileName string) (*os.File, error) {
 	if DumpStdOut {
 		return os.Stdout, nil
+	}
+
+	if FileName == "" {
+		FileName = defaultFileName
+	}
+
+	if !strings.HasSuffix(FileName, ".csv") && !strings.HasSuffix(FileName, ".csv.gz") {
+		FileName += ".csv"
+	}
+
+	if !strings.HasSuffix(FileName, ".gz") && GzipCompression {
+		FileName += ".gz"
 	}
 
 	csvFile, err := os.Create(FileName)
@@ -84,6 +98,8 @@ func createOutputFile() (*os.File, error) {
 		log.Fatalf("failed creating file: %s", err)
 		return nil, err
 	}
+
+	log.Info("Writing to ", FileName)
 
 	return csvFile, nil
 }
@@ -95,6 +111,7 @@ func init() {
 	dumpCmd.AddCommand(dumpYearCmd)
 
 	dumpCmd.PersistentFlags().BoolVar(&DumpStdOut, "stdout", false, "dump to stdout")
-	dumpCmd.PersistentFlags().StringVarP(&FileName, "filename", "f", "dump.csv", "filename")
+	dumpCmd.PersistentFlags().BoolVar(&GzipCompression, "gzip", true, "gzip")
+	dumpCmd.PersistentFlags().StringVarP(&FileName, "filename", "f", "", "filename")
 	dumpCmd.MarkFlagsMutuallyExclusive("stdout", "filename")
 }
