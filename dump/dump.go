@@ -78,6 +78,13 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 		}
 		defer stopRows.Close()
 
+		dateTimeLayout := "2006-01-02 15:04:05"
+		timezone, err := time.LoadLocation("Europe/Amsterdam")
+
+		if err != nil {
+			panic(err)
+		}
+
 		for stopRows.Next() {
 			var serviceNumber, stopCode, stopName string
 			var stopID, arrivalDelay, departureDelay int
@@ -96,7 +103,14 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 
 			// Check for nulls:
 			if arrivalTime.Valid {
-				arrivalTimeCSV = arrivalTime.String
+				arrivalTimeDT, err := time.ParseInLocation(dateTimeLayout, arrivalTime.String, timezone)
+
+				if err == nil {
+					arrivalTimeCSV = arrivalTimeDT.Format(time.RFC3339)
+				} else {
+					arrivalTimeCSV = arrivalTime.String
+				}
+
 				arrivalDelayCSV = strconv.Itoa(arrivalDelay)
 				arrivalCancelledCSV = strconv.FormatBool(arrivalCancelled)
 			} else {
@@ -106,7 +120,14 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 			}
 
 			if departureTime.Valid {
-				departureTimeCSV = departureTime.String
+				departureTimeDT, err := time.ParseInLocation(dateTimeLayout, departureTime.String, timezone)
+
+				if err == nil {
+					departureTimeCSV = departureTimeDT.Format(time.RFC3339)
+				} else {
+					departureTimeCSV = departureTime.String
+				}
+
 				departureDelayCSV = strconv.Itoa(departureDelay)
 				departureCancelledCSV = strconv.FormatBool(departureCancelled)
 			} else {
