@@ -23,8 +23,8 @@ func CreateDB() *sql.DB {
 	}
 
 	// See "Important settings" section.
-	db.SetMaxOpenConns(5)
-	db.SetMaxIdleConns(3)
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(2)
 
 	return db
 }
@@ -74,6 +74,13 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 	}
 	defer serviceRows.Close()
 
+	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled FROM stop WHERE service_id = ? ORDER BY stop_index")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer stopRowsStatement.Close()
+
 	for serviceRows.Next() {
 		var serviceID, maxDelay int
 		var completelyCancelled, partlyCancelled bool
@@ -83,7 +90,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, startDate, endDate string) 
 			log.Fatal(err)
 		}
 
-		stopRows, err := db.Query("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled FROM stop WHERE service_id = ? ORDER BY stop_index", serviceID)
+		stopRows, err := stopRowsStatement.Query(serviceID)
 
 		if err != nil {
 			log.Fatal(err)
