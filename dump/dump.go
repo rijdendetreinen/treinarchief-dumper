@@ -23,8 +23,7 @@ func CreateDB() *sql.DB {
 	}
 
 	// See "Important settings" section.
-	db.SetConnMaxLifetime(time.Minute * 30)
-	db.SetMaxOpenConns(3)
+	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(3)
 
 	return db
