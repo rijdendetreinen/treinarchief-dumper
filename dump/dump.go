@@ -124,99 +124,103 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 			log.Fatal(err)
 		}
 
-		stopRows, err := stopRowsStatement.Query(serviceID)
+		func() {
 
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer stopRows.Close()
+			stopRows, err := stopRowsStatement.Query(serviceID)
 
-		if err != nil {
-			panic(err)
-		}
-
-		for stopRows.Next() {
-			stopCounter++
-
-			if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelay, &arrivalCancelled, &departureTime, &departureDelay, &departureCancelled); err != nil {
+			if err != nil {
 				log.Fatal(err)
 			}
 
-			// Round max delays from seconds to minutes:
-			maxDelay = int(float64(maxDelay) / 60)
-			arrivalDelay = int(float64(arrivalDelay) / 60)
-			departureDelay = int(float64(departureDelay) / 60)
+			if err != nil {
+				panic(err)
+			}
 
-			// Check for nulls:
-			if arrivalTime.Valid {
-				arrivalTimeDT, err := time.ParseInLocation(dateTimeLayout, arrivalTime.String, timezone)
+			for stopRows.Next() {
+				stopCounter++
 
-				if err == nil {
-					arrivalTimeCSV = arrivalTimeDT.Format(time.RFC3339)
+				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelay, &arrivalCancelled, &departureTime, &departureDelay, &departureCancelled); err != nil {
+					log.Fatal(err)
+				}
+
+				// Round max delays from seconds to minutes:
+				maxDelay = int(float64(maxDelay) / 60)
+				arrivalDelay = int(float64(arrivalDelay) / 60)
+				departureDelay = int(float64(departureDelay) / 60)
+
+				// Check for nulls:
+				if arrivalTime.Valid {
+					arrivalTimeDT, err := time.ParseInLocation(dateTimeLayout, arrivalTime.String, timezone)
+
+					if err == nil {
+						arrivalTimeCSV = arrivalTimeDT.Format(time.RFC3339)
+					} else {
+						arrivalTimeCSV = arrivalTime.String
+					}
+
+					arrivalDelayCSV = strconv.Itoa(arrivalDelay)
+					arrivalCancelledCSV = strconv.FormatBool(arrivalCancelled)
 				} else {
-					arrivalTimeCSV = arrivalTime.String
+					arrivalTimeCSV = ""
+					arrivalDelayCSV = ""
+					arrivalCancelledCSV = ""
 				}
 
-				arrivalDelayCSV = strconv.Itoa(arrivalDelay)
-				arrivalCancelledCSV = strconv.FormatBool(arrivalCancelled)
-			} else {
-				arrivalTimeCSV = ""
-				arrivalDelayCSV = ""
-				arrivalCancelledCSV = ""
-			}
+				if departureTime.Valid {
+					departureTimeDT, err := time.ParseInLocation(dateTimeLayout, departureTime.String, timezone)
 
-			if departureTime.Valid {
-				departureTimeDT, err := time.ParseInLocation(dateTimeLayout, departureTime.String, timezone)
+					if err == nil {
+						departureTimeCSV = departureTimeDT.Format(time.RFC3339)
+					} else {
+						departureTimeCSV = departureTime.String
+					}
 
-				if err == nil {
-					departureTimeCSV = departureTimeDT.Format(time.RFC3339)
+					departureDelayCSV = strconv.Itoa(departureDelay)
+					departureCancelledCSV = strconv.FormatBool(departureCancelled)
 				} else {
-					departureTimeCSV = departureTime.String
+					departureTimeCSV = ""
+					departureDelayCSV = ""
+					departureCancelledCSV = ""
 				}
 
-				departureDelayCSV = strconv.Itoa(departureDelay)
-				departureCancelledCSV = strconv.FormatBool(departureCancelled)
-			} else {
-				departureTimeCSV = ""
-				departureDelayCSV = ""
-				departureCancelledCSV = ""
-			}
+				w.Write([]string{
+					strconv.Itoa(serviceID),
+					serviceDate,
+					serviceType,
+					serviceNumber,
+					strconv.FormatBool(completelyCancelled),
+					strconv.FormatBool(partlyCancelled),
+					strconv.Itoa(maxDelay),
+					strconv.Itoa(stopID),
+					stopCode,
+					stopName,
+					arrivalTimeCSV,
+					arrivalDelayCSV,
+					arrivalCancelledCSV,
+					departureTimeCSV,
+					departureDelayCSV,
+					departureCancelledCSV,
+				})
 
-			w.Write([]string{
-				strconv.Itoa(serviceID),
-				serviceDate,
-				serviceType,
-				serviceNumber,
-				strconv.FormatBool(completelyCancelled),
-				strconv.FormatBool(partlyCancelled),
-				strconv.Itoa(maxDelay),
-				strconv.Itoa(stopID),
-				stopCode,
-				stopName,
-				arrivalTimeCSV,
-				arrivalDelayCSV,
-				arrivalCancelledCSV,
-				departureTimeCSV,
-				departureDelayCSV,
-				departureCancelledCSV,
-			})
+				if stopCounter%40000 == 0 {
+					progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
+					progress := fmt.Sprintf("%.2f", progressNumber)
+					log.WithFields(log.Fields{"services": serviceCounter, "stops": stopCounter, "progress": progress}).Info("Dumping...")
 
-			if stopCounter%40000 == 0 {
-				progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
-				progress := fmt.Sprintf("%.2f", progressNumber)
-				log.WithFields(log.Fields{"services": serviceCounter, "stops": stopCounter, "progress": progress}).Info("Dumping...")
+					// Take 1s timeout to prevent host from getting overloaded:
+					time.Sleep(1 * time.Second)
 
-				// Take 1s timeout to prevent host from getting overloaded:
-				time.Sleep(1 * time.Second)
+					// flush csv
+					w.Flush()
 
-				// flush csv
-				w.Flush()
-
-				if gzipCompression {
-					zipWriter.Flush()
+					if gzipCompression {
+						zipWriter.Flush()
+					}
 				}
 			}
-		}
+
+			stopRows.Close()
+		}()
 	}
 
 	progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
