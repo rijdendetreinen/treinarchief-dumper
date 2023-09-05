@@ -207,8 +207,8 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					progress := fmt.Sprintf("%.2f", progressNumber)
 					log.WithFields(log.Fields{"services": serviceCounter, "stops": stopCounter, "progress": progress}).Info("Dumping...")
 
-					// Take 1s timeout to prevent host from getting overloaded:
-					time.Sleep(1 * time.Second)
+					// Take .2s timeout to prevent host from getting overloaded:
+					time.Sleep(200 * time.Millisecond)
 
 					// flush csv
 					w.Flush()
