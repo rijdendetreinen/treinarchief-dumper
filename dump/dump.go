@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"database/sql"
 	"encoding/csv"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -198,10 +199,12 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 			})
 
 			if stopCounter%40000 == 0 {
-				log.WithFields(log.Fields{"service": serviceCounter, "stop": stopCounter}).Info("Dumping...")
+				progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
+				progress := fmt.Sprintf("%.2f", progressNumber)
+				log.WithFields(log.Fields{"services": serviceCounter, "stops": stopCounter, "progress": progress}).Info("Dumping...")
 
-				// Take 0.5s timeout to prevent MySQL from getting overloaded:
-				time.Sleep(500 * time.Millisecond)
+				// Take 1s timeout to prevent host from getting overloaded:
+				time.Sleep(1 * time.Second)
 
 				// flush csv
 				w.Flush()
@@ -209,7 +212,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		}
 	}
 
-	log.WithFields(log.Fields{"service": serviceCounter, "stop": stopCounter}).Info("Done")
+	progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
+	progress := fmt.Sprintf("%.2f", progressNumber)
+	log.WithFields(log.Fields{"services": serviceCounter, "stops": stopCounter, "progress": progress}).Info("Dumping complete")
 
 	return err
 }
