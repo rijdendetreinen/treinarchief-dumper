@@ -101,12 +101,23 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	serviceCounter := 0
 	stopCounter := 0
 
+	// for services:
+	var serviceID, maxDelay int
+	var completelyCancelled, partlyCancelled bool
+	var serviceDate, serviceType string
+
+	// for stops:
+	var serviceNumber, stopCode, stopName string
+	var stopID, arrivalDelay, departureDelay int
+	var arrivalTime, departureTime sql.NullString
+	var arrivalCancelled, departureCancelled bool
+	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV string
+
+	dateTimeLayout := "2006-01-02 15:04:05"
+	timezone, err := time.LoadLocation("Europe/Amsterdam")
+
 	for serviceRows.Next() {
 		serviceCounter++
-
-		var serviceID, maxDelay int
-		var completelyCancelled, partlyCancelled bool
-		var serviceDate, serviceType string
 
 		if err := serviceRows.Scan(&serviceID, &serviceDate, &serviceType, &completelyCancelled, &partlyCancelled, &maxDelay); err != nil {
 			log.Fatal(err)
@@ -119,21 +130,12 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		}
 		defer stopRows.Close()
 
-		dateTimeLayout := "2006-01-02 15:04:05"
-		timezone, err := time.LoadLocation("Europe/Amsterdam")
-
 		if err != nil {
 			panic(err)
 		}
 
 		for stopRows.Next() {
 			stopCounter++
-
-			var serviceNumber, stopCode, stopName string
-			var stopID, arrivalDelay, departureDelay int
-			var arrivalTime, departureTime sql.NullString
-			var arrivalCancelled, departureCancelled bool
-			var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV string
 
 			if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelay, &arrivalCancelled, &departureTime, &departureDelay, &departureCancelled); err != nil {
 				log.Fatal(err)
