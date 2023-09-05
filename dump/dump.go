@@ -34,9 +34,10 @@ func CreateDB() *sql.DB {
 // SelectAllDevices selects all devices (without errors)
 func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string) error {
 	var w *csv.Writer
+	var zipWriter *gzip.Writer
 
 	if gzipCompression {
-		zipWriter := gzip.NewWriter(csvFile)
+		zipWriter = gzip.NewWriter(csvFile)
 		w = csv.NewWriter(zipWriter)
 
 		defer zipWriter.Flush()
@@ -210,6 +211,10 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 
 				// flush csv
 				w.Flush()
+
+				if gzipCompression {
+					zipWriter.Flush()
+				}
 			}
 		}
 	}
