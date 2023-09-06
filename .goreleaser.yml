@@ -7,3 +7,5 @@ builds:
 archives:
   - 
     wrap_in_directory: "{{ .ProjectName }}_{{ .Version }}"
+    files:
+      - config/example-config.yml
