@@ -1,0 +1,6 @@
+database:
+  dsn: username:password@tcp(127.0.0.1)/rdt_archive
+
+# For localhost (socket):
+#database:
+#  dsn: username:password@unix(/var/run/mysqld/mysqld.sock)/rdt_archive
