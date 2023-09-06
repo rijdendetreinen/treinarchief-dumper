@@ -64,7 +64,7 @@ func initConfig() {
 		viper.SetConfigName("config")
 
 		viper.AddConfigPath("./config")
-		viper.AddConfigPath("/etc/alerdt/")
+		viper.AddConfigPath("/etc/rdt-treinarchief-dumper/")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
