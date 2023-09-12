@@ -53,6 +53,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		"Service:RDT-ID",
 		"Service:Date",
 		"Service:Type",
+		"Service:Company",
 		"Service:Train number",
 		"Service:Completely cancelled",
 		"Service:Partly cancelled",
@@ -81,7 +82,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 
 	log.WithFields(log.Fields{"from": startDate, "to": endDate}).Info("Selecting ", serviceCount, " services")
 
-	serviceRows, err := db.Query("SELECT id, service_date, type, cancelled_completely, cancelled_partly, max_delay FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
+	serviceRows, err := db.Query("SELECT id, service_date, type, company, cancelled_completely, cancelled_partly, max_delay FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
 
 	if err != nil {
 		log.Fatal(err)
@@ -105,7 +106,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	// for services:
 	var serviceID, maxDelay int
 	var completelyCancelled, partlyCancelled bool
-	var serviceDate, serviceType string
+	var serviceDate, serviceType, serviceCompany string
 
 	// for stops:
 	var serviceNumber, stopCode, stopName string
@@ -121,7 +122,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	for serviceRows.Next() {
 		serviceCounter++
 
-		if err := serviceRows.Scan(&serviceID, &serviceDate, &serviceType, &completelyCancelled, &partlyCancelled, &maxDelay); err != nil {
+		if err := serviceRows.Scan(&serviceID, &serviceDate, &serviceType, &serviceCompany, &completelyCancelled, &partlyCancelled, &maxDelay); err != nil {
 			log.Fatal(err)
 		}
 
@@ -208,6 +209,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					strconv.Itoa(serviceID),
 					serviceDate,
 					serviceType,
+					serviceCompany,
 					serviceNumber,
 					strconv.FormatBool(completelyCancelled),
 					strconv.FormatBool(partlyCancelled),
