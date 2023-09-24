@@ -64,9 +64,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		"Stop:Arrival time",
 		"Stop:Arrival delay",
 		"Stop:Arrival cancelled",
-		"Stop:departure time",
-		"Stop:departure delay",
-		"Stop:departure cancelled",
+		"Stop:Departure time",
+		"Stop:Departure delay",
+		"Stop:Departure cancelled",
 	})
 
 	var serviceCount int
