@@ -12,6 +12,7 @@ import (
 var FileName string
 var DumpStdOut bool
 var GzipCompression bool
+var IncludeMaterial bool
 
 var dumpCmd = &cobra.Command{
 	Use:   "dump",
@@ -33,7 +34,7 @@ var dumpDayCmd = &cobra.Command{
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0], args[0])
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0], args[0], IncludeMaterial)
 	},
 }
 
@@ -52,7 +53,7 @@ var dumpMonthCmd = &cobra.Command{
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01", args[0]+"-31")
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01", args[0]+"-31", IncludeMaterial)
 	},
 }
 
@@ -71,7 +72,7 @@ var dumpYearCmd = &cobra.Command{
 		}
 
 		defer csvFile.Close()
-		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01-01", args[0]+"-12-31")
+		dump.DumpServicesStops(database, csvFile, GzipCompression, args[0]+"-01-01", args[0]+"-12-31", IncludeMaterial)
 	},
 }
 
@@ -111,7 +112,8 @@ func init() {
 	dumpCmd.AddCommand(dumpYearCmd)
 
 	dumpCmd.PersistentFlags().BoolVar(&DumpStdOut, "stdout", false, "dump to stdout")
-	dumpCmd.PersistentFlags().BoolVar(&GzipCompression, "gzip", true, "gzip")
+	dumpCmd.PersistentFlags().BoolVarP(&GzipCompression, "gzip", "z", true, "gzip")
+	dumpCmd.PersistentFlags().BoolVarP(&IncludeMaterial, "material", "m", false, "include material in dump")
 	dumpCmd.PersistentFlags().StringVarP(&FileName, "filename", "f", "", "filename")
 	dumpCmd.MarkFlagsMutuallyExclusive("stdout", "filename")
 }

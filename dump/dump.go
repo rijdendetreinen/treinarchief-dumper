@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -32,7 +33,7 @@ func CreateDB() *sql.DB {
 }
 
 // SelectAllDevices selects all devices (without errors)
-func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string) error {
+func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string, includeMaterial bool) error {
 	var w *csv.Writer
 	var zipWriter *gzip.Writer
 
@@ -49,7 +50,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	defer w.Flush()
 
 	// Write header row:
-	w.Write([]string{
+	headers := []string{
 		"Service:RDT-ID",
 		"Service:Date",
 		"Service:Type",
@@ -67,7 +68,14 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		"Stop:Departure time",
 		"Stop:Departure delay",
 		"Stop:Departure cancelled",
-	})
+	}
+
+	if includeMaterial {
+		headers = append(headers, "Stop:Stock types")
+		headers = append(headers, "Stop:Unit numbers")
+	}
+
+	w.Write(headers)
 
 	var serviceCount int
 
@@ -93,7 +101,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		log.Fatal(err)
 	}
 
-	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled FROM stop WHERE service_id = ? ORDER BY stop_index")
+	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled, material FROM stop WHERE service_id = ? ORDER BY stop_index")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,7 +122,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	var arrivalDelayNullable, departureDelayNullable sql.NullInt64
 	var arrivalTime, departureTime sql.NullString
 	var arrivalCancelled, departureCancelled *bool
-	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV string
+	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV, materialJSON string
 
 	dateTimeLayout := "2006-01-02 15:04:05"
 	timezone, err := time.LoadLocation("Europe/Amsterdam")
@@ -141,7 +149,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 			for stopRows.Next() {
 				stopCounter++
 
-				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelayNullable, &arrivalCancelled, &departureTime, &departureDelayNullable, &departureCancelled); err != nil {
+				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelayNullable, &arrivalCancelled, &departureTime, &departureDelayNullable, &departureCancelled, &materialJSON); err != nil {
 					log.Fatal(err)
 				}
 
@@ -205,7 +213,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					departureCancelledCSV = ""
 				}
 
-				w.Write([]string{
+				row := []string{
 					strconv.Itoa(serviceID),
 					serviceDate,
 					serviceType,
@@ -223,7 +231,41 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					departureTimeCSV,
 					departureDelayCSV,
 					departureCancelledCSV,
-				})
+				}
+
+				if includeMaterial {
+					var material string
+					var unitNumbers string
+
+					var materialList []map[string]string
+					err := json.Unmarshal([]byte(materialJSON), &materialList)
+
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					for _, materialItem := range materialList {
+						material += materialItem["type"] + " + "
+
+						if len(materialItem["number"]) > 0 {
+							unitNumbers += materialItem["number"] + " + "
+						}
+					}
+
+					// Remove trailing comma:
+					if len(material) > 0 {
+						material = material[:len(material)-3]
+					}
+
+					if len(unitNumbers) > 0 {
+						unitNumbers = unitNumbers[:len(unitNumbers)-3]
+					}
+
+					row = append(row, material)
+					row = append(row, unitNumbers)
+				}
+
+				w.Write(row)
 
 				if stopCounter%40000 == 0 {
 					progressNumber := float64(serviceCounter) / float64(serviceCount) * 100
