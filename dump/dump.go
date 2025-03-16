@@ -33,7 +33,7 @@ func CreateDB() *sql.DB {
 }
 
 // SelectAllDevices selects all devices (without errors)
-func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string, includeMaterial bool) error {
+func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, startDate, endDate string, includeMaterial bool, series []string) error {
 	var w *csv.Writer
 	var zipWriter *gzip.Writer
 
@@ -79,7 +79,33 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 
 	var serviceCount int
 
-	serviceCountRow, err := db.Query("SELECT COUNT(id) FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
+	// serviceCountRow, err := db.Query("SELECT COUNT(id) FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
+
+	baseQueryCondition := "service_date >= ? AND service_date <= ?"
+	baseQueryConditionValues := []interface{}{startDate, endDate}
+	trainSeriesNumbers := []int{}
+
+	if len(series) > 0 {
+		baseQueryCondition += " AND ("
+		for seriesIndex, seriesItem := range series {
+			if seriesIndex > 0 {
+				baseQueryCondition += " OR"
+			}
+
+			// string to int
+			trainSeriesNumber, err := strconv.Atoi(seriesItem)
+			if err != nil {
+				log.Fatal(err)
+			}
+			trainSeriesNumbers = append(trainSeriesNumbers, trainSeriesNumber)
+
+			baseQueryCondition += "(service_number >= ? AND service_number < ?)"
+			baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber, trainSeriesNumber+100)
+		}
+		baseQueryCondition += ")"
+	}
+
+	serviceCountRow, err := db.Query("SELECT COUNT(id) FROM service WHERE "+baseQueryCondition, baseQueryConditionValues...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,9 +114,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	serviceCountRow.Scan(&serviceCount)
 	serviceCountRow.Close()
 
-	log.WithFields(log.Fields{"from": startDate, "to": endDate}).Info("Selecting ", serviceCount, " services")
+	log.WithFields(log.Fields{"date_from": startDate, "date_to": endDate, "series": trainSeriesNumbers}).Info("Selecting ", serviceCount, " services")
 
-	serviceRows, err := db.Query("SELECT id, service_date, type, company, cancelled_completely, cancelled_partly, max_delay FROM service WHERE service_date >= ? AND service_date <= ?", startDate, endDate)
+	serviceRows, err := db.Query("SELECT id, service_date, type, company, cancelled_completely, cancelled_partly, max_delay FROM service WHERE "+baseQueryCondition, baseQueryConditionValues...)
 
 	if err != nil {
 		log.Fatal(err)
