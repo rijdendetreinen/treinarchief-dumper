@@ -101,6 +101,22 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 
 			baseQueryCondition += "(service_number >= ? AND service_number < ?)"
 			baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber, trainSeriesNumber+100)
+
+			// Also select the accompanying replacement series:
+			if trainSeriesNumber < 300000 {
+				baseQueryCondition += " OR (service_number >= ? AND service_number < ?)"
+				baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber+300000, trainSeriesNumber+300000+100)
+
+				baseQueryCondition += " OR (service_number >= ? AND service_number < ?)"
+				baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber+330000, trainSeriesNumber+330000+100)
+
+				// Diversions / engineering works
+				baseQueryCondition += " OR (service_number >= ? AND service_number < ?)"
+				baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber+690000, trainSeriesNumber+690000+100)
+
+				baseQueryCondition += " OR (service_number >= ? AND service_number < ?)"
+				baseQueryConditionValues = append(baseQueryConditionValues, trainSeriesNumber+700000, trainSeriesNumber+700000+100)
+			}
 		}
 		baseQueryCondition += ")"
 	}
