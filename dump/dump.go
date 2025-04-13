@@ -165,10 +165,10 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	var serviceNumber, stopCode, stopName string
 	var stopID, arrivalDelay, departureDelay int
 	var arrivalDelayNullable, departureDelayNullable sql.NullInt64
-	var arrivalTime, departureTime, platformPlanned, platformActual sql.NullString
+	var arrivalTime, departureTime, platformPlanned, platformActual, materialJSON sql.NullString
 	var arrivalCancelled, departureCancelled *bool
 	var platformChanged bool
-	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV, materialJSON, platformPlannedCSV, platformActualCSV string
+	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV, platformPlannedCSV, platformActualCSV string
 
 	dateTimeLayout := "2006-01-02 15:04:05"
 	timezone, err := time.LoadLocation("Europe/Amsterdam")
@@ -299,27 +299,30 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					var unitNumbers string
 
 					var materialList []map[string]string
-					err := json.Unmarshal([]byte(materialJSON), &materialList)
 
-					if err != nil {
-						log.Fatal(err)
-					}
+					if materialJSON.Valid {
+						err := json.Unmarshal([]byte(materialJSON.String), &materialList)
 
-					for _, materialItem := range materialList {
-						material += materialItem["type"] + " + "
-
-						if len(materialItem["number"]) > 0 {
-							unitNumbers += materialItem["number"] + " + "
+						if err != nil {
+							log.Fatal(err)
 						}
-					}
 
-					// Remove trailing comma:
-					if len(material) > 0 {
-						material = material[:len(material)-3]
-					}
+						for _, materialItem := range materialList {
+							material += materialItem["type"] + " + "
 
-					if len(unitNumbers) > 0 {
-						unitNumbers = unitNumbers[:len(unitNumbers)-3]
+							if len(materialItem["number"]) > 0 {
+								unitNumbers += materialItem["number"] + " + "
+							}
+						}
+
+						// Remove trailing comma:
+						if len(material) > 0 {
+							material = material[:len(material)-3]
+						}
+
+						if len(unitNumbers) > 0 {
+							unitNumbers = unitNumbers[:len(unitNumbers)-3]
+						}
 					}
 
 					row = append(row, material)
