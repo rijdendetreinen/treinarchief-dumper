@@ -68,6 +68,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		"Stop:Departure time",
 		"Stop:Departure delay",
 		"Stop:Departure cancelled",
+		"Stop:Platform change",
+		"Stop:Planned platform",
+		"Stop:Actual platform",
 	}
 
 	if includeMaterial {
@@ -143,7 +146,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 		log.Fatal(err)
 	}
 
-	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled, material FROM stop WHERE service_id = ? ORDER BY stop_index")
+	stopRowsStatement, err := db.Prepare("SELECT id, service_number, stop_code, stop_name, arrival, arrival_delay, arrival_cancelled, departure, departure_delay, departure_cancelled, material, platform_original, platform_actual FROM stop WHERE service_id = ? ORDER BY stop_index")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -162,9 +165,10 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 	var serviceNumber, stopCode, stopName string
 	var stopID, arrivalDelay, departureDelay int
 	var arrivalDelayNullable, departureDelayNullable sql.NullInt64
-	var arrivalTime, departureTime sql.NullString
+	var arrivalTime, departureTime, platformPlanned, platformActual sql.NullString
 	var arrivalCancelled, departureCancelled *bool
-	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV, materialJSON string
+	var platformChanged bool
+	var arrivalTimeCSV, arrivalDelayCSV, arrivalCancelledCSV, departureTimeCSV, departureDelayCSV, departureCancelledCSV, materialJSON, platformPlannedCSV, platformActualCSV string
 
 	dateTimeLayout := "2006-01-02 15:04:05"
 	timezone, err := time.LoadLocation("Europe/Amsterdam")
@@ -191,7 +195,7 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 			for stopRows.Next() {
 				stopCounter++
 
-				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelayNullable, &arrivalCancelled, &departureTime, &departureDelayNullable, &departureCancelled, &materialJSON); err != nil {
+				if err := stopRows.Scan(&stopID, &serviceNumber, &stopCode, &stopName, &arrivalTime, &arrivalDelayNullable, &arrivalCancelled, &departureTime, &departureDelayNullable, &departureCancelled, &materialJSON, &platformPlanned, &platformActual); err != nil {
 					log.Fatal(err)
 				}
 
@@ -255,6 +259,18 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					departureCancelledCSV = ""
 				}
 
+				platformChanged = false
+				if platformPlanned.Valid && platformActual.Valid {
+					if platformPlanned.String != platformActual.String {
+						platformChanged = true
+					}
+					platformPlannedCSV = platformPlanned.String
+					platformActualCSV = platformActual.String
+				} else {
+					platformPlannedCSV = ""
+					platformActualCSV = ""
+				}
+
 				row := []string{
 					strconv.Itoa(serviceID),
 					serviceDate,
@@ -273,6 +289,9 @@ func DumpServicesStops(db *sql.DB, csvFile *os.File, gzipCompression bool, start
 					departureTimeCSV,
 					departureDelayCSV,
 					departureCancelledCSV,
+					strconv.FormatBool(platformChanged),
+					platformPlannedCSV,
+					platformActualCSV,
 				}
 
 				if includeMaterial {
